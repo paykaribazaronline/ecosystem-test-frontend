@@ -156,8 +156,23 @@ export function parseBackendUrl(raw: string): ParsedBackend {
 }
 
 function buildUrl(path: string, params?: Record<string, unknown>): string {
-  const { prefix, port } = parseBackendUrl(getBackendUrl())
-  // Path is always relative so requests stay same-origin through the gateway.
+  const rawUrl = getBackendUrl()
+  // If backend URL is an absolute URL (https://...), use it directly
+  if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+    const base = rawUrl.replace(/\/+$/, '')
+    let url = path.startsWith('/') ? path : `/${path}`
+    const qs = new URLSearchParams()
+    if (params) {
+      for (const [k, v] of Object.entries(params)) {
+        if (v === undefined || v === null || v === '') continue
+        qs.set(k, String(v))
+      }
+    }
+    const query = qs.toString()
+    return query ? `${base}${url}?${query}` : `${base}${url}`
+  }
+  // Otherwise, relative path (sandbox gateway mode)
+  const { prefix, port } = parseBackendUrl(rawUrl)
   let url = path.startsWith('/') ? path : `/${path}`
   if (prefix) url = `${prefix}${url}`
   const qs = new URLSearchParams()
