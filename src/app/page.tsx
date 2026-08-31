@@ -127,6 +127,7 @@ export default function Home() {
             <TabsTrigger value="approvals" className="gap-1.5"><Shield className="w-4 h-4" /> Approvals</TabsTrigger>
             <TabsTrigger value="sources" className="gap-1.5"><Search className="w-4 h-4" /> Sources</TabsTrigger>
             <TabsTrigger value="deployments" className="gap-1.5"><Rocket className="w-4 h-4" /> Deployments</TabsTrigger>
+            <TabsTrigger value="supremeai" className="gap-1.5"><Sparkles className="w-4 h-4" /> SupremeAI</TabsTrigger>
             <TabsTrigger value="mcp" className="gap-1.5"><Workflow className="w-4 h-4" /> MCP</TabsTrigger>
             <TabsTrigger value="settings" className="gap-1.5"><Settings className="w-4 h-4" /> Settings</TabsTrigger>
           </TabsList>
@@ -138,6 +139,7 @@ export default function Home() {
           <TabsContent value="approvals" className="mt-6"><ApprovalsTab /></TabsContent>
           <TabsContent value="sources" className="mt-6"><SourcesTab /></TabsContent>
           <TabsContent value="deployments" className="mt-6"><DeploymentsTab /></TabsContent>
+          <TabsContent value="supremeai" className="mt-6"><SupremeAITab /></TabsContent>
           <TabsContent value="mcp" className="mt-6"><MCPTab /></TabsContent>
           <TabsContent value="settings" className="mt-6">
             <SettingsTab settings={settings} setSettings={setSettings} onReconnect={reconnect} />
@@ -767,6 +769,156 @@ function DeploymentsTab() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// ── SupremeAI Bridge Tab ───────────────────────────────────────────────────────
+function SupremeAITab() {
+  const { toast } = useToast()
+  const [health, setHealth] = useState<import('@/lib/ecosystem/api').SupremeAIHealth | null>(null)
+  const [status, setStatus] = useState<import('@/lib/ecosystem/api').SupremeAIBridgeStatus | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [proxyPath, setProxyPath] = useState('/api/v1/skills')
+  const [proxyMethod, setProxyMethod] = useState('GET')
+  const [proxyResult, setProxyResult] = useState<import('@/lib/ecosystem/api').SupremeAIProxyResult | null>(null)
+  const [loginEmail, setLoginEmail] = useState('niloyjoy7@gmail.com')
+  const [loginPass, setLoginPass] = useState('')
+  const [loginResult, setLoginResult] = useState<{ ok: boolean; token?: string; error?: string } | null>(null)
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [h, s] = await Promise.all([api.getSupremeAIHealth(), api.getSupremeAIStatus()])
+      setHealth(h); setStatus(s)
+    } catch (e) { console.error(e) } finally { setLoading(false) }
+  }, [])
+
+  useEffect(() => { refresh() }, [refresh])
+
+  const doProxy = async () => {
+    try {
+      const r = await api.supremeAIProxy(proxyMethod, proxyPath)
+      setProxyResult(r)
+      toast({ title: r.ok ? 'Proxy call success' : 'Proxy failed', description: `HTTP ${r.status_code}` })
+    } catch (e) { toast({ title: 'Failed', description: String(e).slice(0, 150), variant: 'destructive' }) }
+  }
+
+  const doLogin = async () => {
+    try {
+      const r = await api.supremeAILogin(loginEmail, loginPass)
+      setLoginResult(r)
+      toast({ title: r.ok ? 'Authenticated' : 'Auth failed', description: r.error || 'token received' })
+    } catch (e) { toast({ title: 'Failed', description: String(e).slice(0, 150), variant: 'destructive' }) }
+  }
+
+  if (loading) return <Loading />
+  if (!health) return <ErrorState onRetry={refresh} />
+
+  const checks = health.metadata?.checks || []
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold text-slate-900">SupremeAI Bridge</h2>
+          <p className="text-sm text-slate-500">Ecosystem → supremeai-backend-v2 (read-only bridge, no supremeai changes)</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={refresh}><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
+      </div>
+
+      {/* Bridge status */}
+      <Card className="border-slate-200">
+        <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Sparkles className="w-4 h-4" /> Bridge Status</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+            <div><div className="text-xs text-slate-500">Status</div><Badge className={HEALTH_COLOR[health.status] || HEALTH_COLOR.UNKNOWN}>{health.status}</Badge></div>
+            <div><div className="text-xs text-slate-500">Raw Status</div><div className="font-medium">{health.raw_status || '—'}</div></div>
+            <div><div className="text-xs text-slate-500">Environment</div><div className="font-medium">{health.environment || '—'}</div></div>
+            <div><div className="text-xs text-slate-500">Uptime</div><div className="font-medium">{health.metadata?.uptime_seconds ? Math.round(health.metadata.uptime_seconds / 60) + ' min' : '—'}</div></div>
+          </div>
+          <div className="text-xs text-slate-500">
+            Bridge: {status?.bridge || 'ecosystem → supremeai-backend-v2'}
+          </div>
+          <div className="text-xs text-slate-500">
+            URL: {status?.deployment?.url || 'https://supremeai-backend-v2.onrender.com'}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Health checks */}
+      {checks.length > 0 && (
+        <Card className="border-slate-200">
+          <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Activity className="w-4 h-4" /> Health Checks ({checks.length})</CardTitle></CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {checks.map((c, i) => (
+                <div key={i} className="flex items-center justify-between border border-slate-200 rounded-md px-3 py-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Badge className={HEALTH_COLOR[c.status.toUpperCase()] || HEALTH_COLOR.UNKNOWN}>{c.status}</Badge>
+                    <span className="font-medium">{c.name}</span>
+                  </div>
+                  <span className="text-xs text-slate-500">{c.latency_ms?.toFixed(2)} ms</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Auth login */}
+      <Card className="border-slate-200">
+        <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Shield className="w-4 h-4" /> Authenticate (get JWT from supremeai)</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Email (username)</Label>
+              <Input value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="admin@example.com" />
+            </div>
+            <div>
+              <Label className="text-xs">Password</Label>
+              <Input value={loginPass} onChange={e => setLoginPass(e.target.value)} type="password" placeholder="password" />
+            </div>
+          </div>
+          <Button onClick={doLogin} disabled={!loginEmail || !loginPass}><Shield className="w-4 h-4 mr-1" /> Login</Button>
+          {loginResult && (
+            <div>
+              <Label className="text-xs">Result</Label>
+              <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-md overflow-auto max-h-32 font-mono">
+                {JSON.stringify(loginResult, null, 2)}
+              </pre>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Proxy */}
+      <Card className="border-slate-200">
+        <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Workflow className="w-4 h-4" /> Proxy — call any supremeai endpoint</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-[100px_1fr_auto] gap-2">
+            <select value={proxyMethod} onChange={e => setProxyMethod(e.target.value)} className="border border-slate-300 rounded-md px-2 text-sm">
+              <option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option>
+            </select>
+            <Input value={proxyPath} onChange={e => setProxyPath(e.target.value)} placeholder="/api/v1/skills" />
+            <Button onClick={doProxy}><PlayCircle className="w-4 h-4 mr-1" /> Call</Button>
+          </div>
+          <div className="text-xs text-slate-500">
+            Examples: <code className="bg-slate-100 px-1 rounded">/health</code>{' '}
+            <code className="bg-slate-100 px-1 rounded">/api/v1/health/live</code>{' '}
+            <code className="bg-slate-100 px-1 rounded">/api/v1/skills</code> (auth needed){' '}
+            <code className="bg-slate-100 px-1 rounded">/api/v1/tasks</code> (auth needed)
+          </div>
+          {proxyResult && (
+            <div>
+              <Label className="text-xs">Result (HTTP {proxyResult.status_code})</Label>
+              <pre className="bg-slate-900 text-slate-100 text-xs p-3 rounded-md overflow-auto max-h-64 font-mono">
+                {JSON.stringify(proxyResult, null, 2)}
+              </pre>
             </div>
           )}
         </CardContent>

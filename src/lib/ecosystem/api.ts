@@ -226,3 +226,59 @@ export async function advanceOpportunity(oppId: string, stage: string): Promise<
 export async function listGovernanceDecisions(): Promise<unknown[]> {
   return request('/api/v1/ecosystem/admin/governance/decisions?limit=50', { admin: true })
 }
+
+// ── SupremeAI bridge (connects to supremeai-backend-v2) ──────────────────────
+export interface SupremeAIHealth {
+  resource_id: string
+  status: string
+  raw_status?: string
+  version?: string
+  environment?: string
+  captured_at: string
+  metadata?: {
+    total_checks?: number
+    passed_checks?: number
+    uptime_seconds?: number
+    platform?: string
+    checks?: Array<{ name: string; status: string; latency_ms: number }>
+  }
+  error?: string
+}
+
+export interface SupremeAIBridgeStatus {
+  bridge: string
+  health: SupremeAIHealth
+  deployment: { service: string; url: string; platform: string; environment: string } | null
+  resource_id: string
+}
+
+export interface SupremeAIProxyResult {
+  ok: boolean
+  status_code: number
+  data: unknown
+  path: string
+  method: string
+  error?: string
+}
+
+export async function getSupremeAIHealth(): Promise<SupremeAIHealth> {
+  return request('/api/v1/ecosystem/supremeai/health')
+}
+
+export async function getSupremeAIStatus(): Promise<SupremeAIBridgeStatus> {
+  return request('/api/v1/ecosystem/supremeai/status')
+}
+
+export async function supremeAILogin(email: string, password: string): Promise<{ ok: boolean; token?: string; error?: string }> {
+  return request('/api/v1/ecosystem/supremeai/auth/login', {
+    method: 'POST',
+    body: { email, password },
+  })
+}
+
+export async function supremeAIProxy(method: string, path: string, jsonBody?: Record<string, unknown>): Promise<SupremeAIProxyResult> {
+  return request('/api/v1/ecosystem/supremeai/proxy', {
+    method: 'POST',
+    body: { method, path, json_body: jsonBody },
+  })
+}
