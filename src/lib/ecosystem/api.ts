@@ -117,7 +117,7 @@ export function clearSession(): void {
 // ---------------------------------------------------------------------------
 
 const DEFAULT_BACKEND_URL =
-  process.env.NEXT_PUBLIC_ECOSYSTEM_API_URL || 'http://localhost:8010'
+  process.env.NEXT_PUBLIC_ECOSYSTEM_API_URL || 'https://ecosystem-full.onrender.com'
 
 export function getBackendUrl(): string {
   if (typeof window === 'undefined') return DEFAULT_BACKEND_URL
@@ -144,7 +144,7 @@ export function parseBackendUrl(raw: string): ParsedBackend {
   const value = (raw || '').trim()
   if (!value || value === '/') return { prefix: '', port: null }
   try {
-    // Absolute URL (e.g. "http://localhost:8010" or "http://host:8010/prefix")
+    // Absolute URL (e.g. "https://ecosystem-full.onrender.com" or "http://host:8010/prefix")
     const u = new URL(value)
     const prefix = u.pathname.replace(/\/+$/, '')
     return { prefix, port: u.port ? Number(u.port) : null }
